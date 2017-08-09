@@ -2,9 +2,11 @@ package org.wso2.charon3.utils.ldapmanager;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 
 import org.wso2.charon3.core.attributes.Attribute;
 import org.wso2.charon3.core.attributes.ComplexAttribute;
@@ -26,7 +28,10 @@ import org.wso2.charon3.utils.ldapmanager.LdapConstants.UserConstants;
 
 import com.novell.ldap.LDAPAttribute;
 import com.novell.ldap.LDAPAttributeSet;
+import com.novell.ldap.LDAPCompareAttrNames;
 import com.novell.ldap.LDAPEntry;
+import com.novell.ldap.LDAPException;
+import com.novell.ldap.LDAPSearchResults;
 
 /**
  * 
@@ -248,7 +253,7 @@ public class LdapUtil {
 							SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAILS, homeEmailcomplexAttributeName,
 							user, false);
 					homeEmailcomplexAttribute.setMultiValued(false);
-					
+
 					emailType = createSimpleSubAttribute(SCIMConstants.CommonSchemaConstants.TYPE,
 							SCIMConstants.UserSchemaConstants.HOME,
 							SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAIL_TYPE);
@@ -261,7 +266,7 @@ public class LdapUtil {
 					homeEmailcomplexAttribute.setSubAttribute(emailValue);
 					emailAttribute.setAttributeValue(homeEmailcomplexAttribute);
 				}
-				
+
 				if (attributeSet.getAttribute(LdapScimAttrMap.emails_work.getValue()) != null) {
 					String workEmailcomplexAttributeName = SCIMConstants.UserSchemaConstants.EMAILS + "_"
 							+ SCIMConstants.UserSchemaConstants.WORK;
@@ -269,7 +274,7 @@ public class LdapUtil {
 							SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAILS, workEmailcomplexAttributeName,
 							user, false);
 					workEmailcomplexAttribute.setMultiValued(false);
-					
+
 					emailType = createSimpleSubAttribute(SCIMConstants.CommonSchemaConstants.TYPE,
 							SCIMConstants.UserSchemaConstants.WORK,
 							SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAIL_TYPE);
@@ -283,7 +288,7 @@ public class LdapUtil {
 					emailAttribute.setAttributeValue(workEmailcomplexAttribute);
 				}
 				user.setAttribute(emailAttribute);
-				
+
 			}
 
 		} catch (Exception e) {
@@ -425,7 +430,7 @@ public class LdapUtil {
 		}
 		return attributeSet;
 	}
-	
+
 	private static LDAPAttributeSet addSimpleAttribute(String parentName, LDAPAttributeSet attributeSet,
 			Attribute attribute) {
 		SimpleAttribute simpleAttribute = (SimpleAttribute) attribute;
@@ -706,5 +711,40 @@ public class LdapUtil {
 			return date;
 		}
 		return null;
+	}
+
+	public static Object[] sort(LDAPSearchResults searchResults, String sortBy, 
+			String sortOrder, int startIndex, int count ) throws LDAPException, BadRequestException {
+		
+		//sortedResults will sort the entries according to the natural ordering of LDAPEntry (by distiguished name).
+		TreeSet sortedResults = new TreeSet();
+		while (searchResults.hasMore()) {
+			try {
+				sortedResults.add(searchResults.next());
+			} catch (LDAPException e) {
+				System.out.println("Error: " + e.toString());
+				// Exception is thrown, go for next entry
+				continue;
+			}
+		}
+
+		//String namesToSortBy[] = { "sn", "uid", "cn" };
+		//boolean sortAscending[] = { true, false, true };
+		String namesToSortBy[] = { sortBy };
+		boolean sOrder = sortOrder.equals("descending")?false:true;
+		boolean sortAscending[] = { sOrder };
+		LDAPCompareAttrNames myComparator = new LDAPCompareAttrNames(namesToSortBy, sortAscending);
+		Object sortedSpecial[] = sortedResults.toArray();
+		Arrays.sort(sortedSpecial, myComparator);
+
+		if(startIndex>1 || count>0) {
+			if(sortedSpecial.length<startIndex+count-1){
+				throw new BadRequestException("invalidValue");
+			}
+			Object paginatedSpecial[] = Arrays.copyOfRange(sortedSpecial, startIndex-1, startIndex+count-1);
+			return paginatedSpecial;
+		}
+
+		return sortedSpecial;
 	}
 }

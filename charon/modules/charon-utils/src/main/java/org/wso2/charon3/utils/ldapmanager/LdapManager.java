@@ -54,7 +54,7 @@ public class LdapManager implements UserManager {
 	//in memory user manager stores users
 	//ConcurrentHashMap<String, User> inMemoryUserList = new ConcurrentHashMap<String, User>();
 	//ConcurrentHashMap<String, Group> inMemoryGroupList = new ConcurrentHashMap<String, Group>();
-	
+
 	//private static final String SPACE = " ";
 	private static final String LEFT_BRACKET = "(";
 	private static final String RIGHT_BRACKET = ")";
@@ -376,18 +376,13 @@ public class LdapManager implements UserManager {
 	public List<Object> listGroupsWithGET(Node rootNode, int startIndex, int count, String sortBy,
 			String sortOrder, Map<String, Boolean> requiredAttributes)
 					throws CharonException, NotImplementedException, BadRequestException {
-		String search ="";
-		if (sortBy != null || sortOrder != null) {
-			throw new NotImplementedException("Sorting is not supported");
-		}  else if (startIndex != 1) {
+		String search = null;
+		/*if (startIndex != 1) {
 			throw new NotImplementedException("Pagination is not supported");
-		} else if (rootNode != null) {
+		} else */if (rootNode != null) {
 			search = getLdapSearch(rootNode, search, SCIMConstants.GROUP_CORE_SCHEMA_URI);
-			return listGroups(requiredAttributes, search);
-			//throw new NotImplementedException("Filtering is not supported");
-		} else {
-			return listGroups(requiredAttributes);
 		}
+		return listGroups(requiredAttributes, search, sortBy, sortOrder, startIndex, count);
 	}
 
 	private String getLdapSearch(Node node, String search, String schema) {
@@ -404,6 +399,10 @@ public class LdapManager implements UserManager {
 			LdapScimOpMap op = LdapScimOpMap.valueOf(expNode.getOperation());
 			String attr = expNode.getAttributeValue();
 			attr = LdapScimGroupMap.valueOf(attr.split(schema+COLON)[1]).getValue();
+
+			//TODO: construct DN
+			//if(attr == LdapScimGroupMap.members.getValue()) {}
+
 			String value = expNode.getValue();
 			search += LEFT_BRACKET+attr+op.getValue()+value+RIGHT_BRACKET;
 		} else {
@@ -411,63 +410,31 @@ public class LdapManager implements UserManager {
 			LdapScimOpMap op = LdapScimOpMap.valueOf(opNodes.getOperation());
 			search = LEFT_BRACKET+op.getValue() +search+RIGHT_BRACKET;
 		}
-		
+
 
 		return search;
 	}
-	private List<Object> listGroups(Map<String, Boolean> requiredAttributes) throws CharonException, BadRequestException {
-		return listGroups(requiredAttributes, null);
-	}
-	private List<Object> listGroups(Map<String, Boolean> requiredAttributes, String searchString) throws CharonException, BadRequestException {
+	/*private List<Object> listGroups(Map<String, Boolean> requiredAttributes) throws CharonException, BadRequestException {
+		return listGroups(requiredAttributes, null, null, null);
+	}*/
+	private List<Object> listGroups(Map<String, Boolean> requiredAttributes, String filter, String sortBy, String sortOrder, 
+			int startIndex, int count) throws CharonException, BadRequestException {
 		List<Object> groupList = new ArrayList<>();
-		if(searchString == null) {
-			searchString = "cn=*";
-		} /*else {
-			searchString="cn=* & "+searchString;
-		}*/
 		try {
 			LDAPConnection lc = LdapConnectUtil.getConnection(false);
-			LDAPSearchResults searchResults =lc.search(LdapConstants.groupContainer, LDAPConnection.SCOPE_ONE, searchString,null, false); 
+			LDAPSearchResults searchResults =lc.search(LdapConstants.groupContainer, LDAPConnection.SCOPE_ONE, filter, null, false); 
 			groupList.add(searchResults.getCount());
-			Group group;
-			while (searchResults.hasMore()) {
-				LDAPEntry nextEntry = searchResults.next();
-				group =new Group();
-				LDAPAttributeSet attributeSet = nextEntry.getAttributeSet();
-				group.setId(attributeSet.getAttribute(GroupConstants.cn).getStringValue());
-				if (attributeSet.getAttribute(GroupConstants.createdDate) != null) {
-					group.setCreatedDate(LdapUtil.parseDate(attributeSet.getAttribute(GroupConstants.createdDate).getStringValue()));
+			if(sortBy != null) {
+				Object sortedSpecial[] = LdapUtil.sort(searchResults, LdapScimGroupMap.valueOf(sortBy).getValue(), sortOrder, startIndex, count);
+				for (int j = 0; j < sortedSpecial.length; j++) {
+					LDAPEntry nextEntry = (LDAPEntry) sortedSpecial[j];
+					groupList.add(parseLdapToGroup(nextEntry));
 				}
-				if (attributeSet.getAttribute(GroupConstants.modifiedDate) != null) {
-					group.setLastModified(LdapUtil.parseDate(attributeSet.getAttribute(GroupConstants.modifiedDate).getStringValue()));
+			} else {
+				while (searchResults.hasMore()) {
+					LDAPEntry nextEntry = searchResults.next();
+					groupList.add(parseLdapToGroup(nextEntry));
 				}
-				if (attributeSet.getAttribute(GroupConstants.location) != null) {
-					group.setLocation(attributeSet.getAttribute(GroupConstants.location).getStringValue());
-				}
-				if (attributeSet.getAttribute(GroupConstants.name) != null) {
-					group.setDisplayName(attributeSet.getAttribute(GroupConstants.name).getStringValue());
-				}
-				if (attributeSet.getAttribute(GroupConstants.member) != null) {
-					String[] memIds = attributeSet.getAttribute(GroupConstants.member).getStringValueArray();
-					for(String dn :memIds){
-						try{
-							LDAPEntry entry = lc.read(dn);
-							LDAPAttributeSet userAttrSet = entry.getAttributeSet();
-							String uid, name;
-							if (userAttrSet.getAttribute(LdapScimAttrMap.id.getValue()) != null) {
-								uid = userAttrSet.getAttribute(LdapScimAttrMap.id.getValue()).getStringValue();
-								if (userAttrSet.getAttribute(LdapScimAttrMap.displayName.getValue()) != null) {
-									name = userAttrSet.getAttribute(LdapScimAttrMap.displayName.getValue()).getStringValue();
-									group.setMember(uid, name);
-								}
-							}
-						}catch (Exception e) {
-							// TODO: handle exception
-							e.printStackTrace();
-						}
-					}
-				}
-				groupList.add(group);
 			}
 			groupList.set(0, groupList.size() - 1);
 			return (List<Object>) CopyUtil.deepCopy(groupList);
@@ -480,6 +447,46 @@ public class LdapManager implements UserManager {
 			e1.printStackTrace();
 			return  null;
 		}
+	}
+
+	private Group parseLdapToGroup(LDAPEntry nextEntry) throws CharonException, BadRequestException, ParseException {
+		Group group =new Group();
+		LDAPAttributeSet attributeSet = nextEntry.getAttributeSet();
+		group.setId(attributeSet.getAttribute(GroupConstants.cn).getStringValue());
+		if (attributeSet.getAttribute(GroupConstants.createdDate) != null) {
+			group.setCreatedDate(LdapUtil.parseDate(attributeSet.getAttribute(GroupConstants.createdDate).getStringValue()));
+		}
+		if (attributeSet.getAttribute(GroupConstants.modifiedDate) != null) {
+			group.setLastModified(LdapUtil.parseDate(attributeSet.getAttribute(GroupConstants.modifiedDate).getStringValue()));
+		}
+		if (attributeSet.getAttribute(GroupConstants.location) != null) {
+			group.setLocation(attributeSet.getAttribute(GroupConstants.location).getStringValue());
+		}
+		if (attributeSet.getAttribute(GroupConstants.name) != null) {
+			group.setDisplayName(attributeSet.getAttribute(GroupConstants.name).getStringValue());
+		}
+		if (attributeSet.getAttribute(GroupConstants.member) != null) {
+			String[] memIds = attributeSet.getAttribute(GroupConstants.member).getStringValueArray();
+			for(String dn :memIds){
+				try{
+					LDAPConnection lc = LdapConnectUtil.getConnection(false);
+					LDAPEntry entry = lc.read(dn);
+					LDAPAttributeSet userAttrSet = entry.getAttributeSet();
+					String uid, name;
+					if (userAttrSet.getAttribute(LdapScimAttrMap.id.getValue()) != null) {
+						uid = userAttrSet.getAttribute(LdapScimAttrMap.id.getValue()).getStringValue();
+						if (userAttrSet.getAttribute(LdapScimAttrMap.displayName.getValue()) != null) {
+							name = userAttrSet.getAttribute(LdapScimAttrMap.displayName.getValue()).getStringValue();
+							group.setMember(uid, name);
+						}
+					}
+				}catch (Exception e) {
+					// TODO: handle exception
+					e.printStackTrace();
+				}
+			}
+		}
+		return group;
 	}
 
 	@Override
