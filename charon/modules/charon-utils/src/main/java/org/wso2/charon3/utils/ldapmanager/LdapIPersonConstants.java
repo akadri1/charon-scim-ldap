@@ -3,7 +3,8 @@ package org.wso2.charon3.utils.ldapmanager;
 /**
  * 
  * @author AkshathaKadri
- *
+ * 
+ * @author ReenaHegde
  */
 public class LdapIPersonConstants {
 	public static final String x500UniqueIdentifier = "x500UniqueIdentifier";
@@ -53,4 +54,7 @@ public class LdapIPersonConstants {
 	public static final String facsimileTelephoneNumber = "facsimileTelephoneNumber";
 	public static final String manager = "manager"; //Use DN
 	public static final String postOfficeBox = "postOfficeBox";
+	public static final String creatorsName = "creatorsName";
+	public static final String mailstop = "mailstop";
+	public static final String personalTitle = "personalTitle";
 }

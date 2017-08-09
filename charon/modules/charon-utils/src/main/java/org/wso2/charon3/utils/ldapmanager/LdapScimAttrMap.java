@@ -7,7 +7,8 @@ import org.wso2.charon3.core.schema.SCIMConstants.UserSchemaConstants;
 
 /**
  * @author AkshathaKadri
- *
+ * 
+ * @author ReenaHegde
  */
 public enum LdapScimAttrMap {
 	//id("uid"), externalId("x500UniqueIdentifier"), userName("mail"), password("userPassword"),givenName("cn"),familyName("sn"),nickName("givenName");
@@ -36,8 +37,9 @@ public enum LdapScimAttrMap {
 	phoneNumbers_mobile(LdapIPersonConstants.facsimileTelephoneNumber),
 	emails_work(LdapIPersonConstants.mail), 
 	emails_home(LdapIPersonConstants.departmentNumber),
-	photos_photo(LdapIPersonConstants.description), 
-	photos_thumbnail(LdapIPersonConstants.description), 
+	photos_photo(LdapIPersonConstants.mailstop), 
+	photos_thumbnail(LdapIPersonConstants.personalTitle), 
+	
 	
 	resourceType(LdapIPersonConstants.carLicense), 
 	created(LdapIPersonConstants.businessCategory) ,
@@ -79,4 +81,15 @@ public enum LdapScimAttrMap {
 	public void setSet(boolean isSet) {
 		this.isSet = isSet;
 	}
+	
+	public static LdapScimAttrMap getByLdapAttrName(String ldapAttrName) {
+		LdapScimAttrMap returnValue = null;
+        for (LdapScimAttrMap attr : LdapScimAttrMap.values()) {
+            if (attr.getValue().equalsIgnoreCase(ldapAttrName)) {
+            	returnValue = attr;
+            }
+           
+        }
+        return returnValue;
+    }
 }
