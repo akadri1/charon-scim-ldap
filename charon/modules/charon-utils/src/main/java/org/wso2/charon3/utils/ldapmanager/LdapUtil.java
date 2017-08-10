@@ -2,9 +2,12 @@ package org.wso2.charon3.utils.ldapmanager;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 
 import org.wso2.charon3.core.attributes.Attribute;
 import org.wso2.charon3.core.attributes.ComplexAttribute;
@@ -26,7 +29,10 @@ import org.wso2.charon3.utils.ldapmanager.LdapConstants.UserConstants;
 
 import com.novell.ldap.LDAPAttribute;
 import com.novell.ldap.LDAPAttributeSet;
+import com.novell.ldap.LDAPCompareAttrNames;
 import com.novell.ldap.LDAPEntry;
+import com.novell.ldap.LDAPException;
+import com.novell.ldap.LDAPSearchResults;
 
 /**
  * 
@@ -83,208 +89,199 @@ public class LdapUtil {
 
 	}
 
-
 	/**
 	 * Converts LDAP Entry object in to SCIM object
+	 * 
 	 * @param entry
 	 * @return
 	 */
 	public static User convertLdapToUser(LDAPEntry entry) {
 
 		User user = convertLdapToUserForList(entry);
+		LDAPAttribute attribute;
+		ComplexAttribute nameAttribute = null;
+		ComplexAttribute homeAddrAttribute = null;
+		ComplexAttribute workAddrAttribute = null;
+		ComplexAttribute homeEmailAttribute = null;
+		ComplexAttribute workEmailAttribute = null;
+		MultiValuedAttribute addressAttribute = null;
+		MultiValuedAttribute emailAttribute = null;
+		SimpleAttribute addressFormatted = null;
+		SimpleAttribute nameSubAttribute;
+		SimpleAttribute addressType = null;
+		SimpleAttribute workAddressSubAttribute = null;
+		SimpleAttribute emailType = null;
+		SimpleAttribute emailValue = null;
+		String subAttributeName = "";
+		Object value = "";
+		AttributeSchema schema = null;
 		try {
 			LDAPAttributeSet attributeSet = entry.getAttributeSet();
 
-			ComplexAttribute nameAttribute = createComplexAttribute(SCIMSchemaDefinitions.SCIMUserSchemaDefinition.NAME,
-					SCIMConstants.UserSchemaConstants.NAME, user, true);
-			if (attributeSet.getAttribute(LdapScimAttrMap.formatted.getValue()) != null) {
-				SimpleAttribute formattedNameAttribute = createSimpleSubAttribute(
-						SCIMConstants.UserSchemaConstants.FORMATTED_NAME,
-						attributeSet.getAttribute(LdapScimAttrMap.formatted.getValue()).getStringValue(),
-						SCIMSchemaDefinitions.SCIMUserSchemaDefinition.FORMATTED);
-				nameAttribute.setSubAttribute(formattedNameAttribute);
-			}
+			Iterator<LDAPAttribute> iterator = attributeSet.iterator();
+			while (iterator.hasNext()) {
+				attribute = iterator.next();
+				value = attribute.getStringValue();
+				// subAttributeName =
+				// LdapScimAttrMap.getByLdapAttrName(attribute.getName()).toString();
+				if (attribute.getName()
+						.matches(LdapIPersonConstants.fullName + "|" + LdapIPersonConstants.givenName + "|"
+								+ LdapIPersonConstants.initials + "|" + LdapIPersonConstants.pager + "|"
+								+ LdapIPersonConstants.description)) {
+					if(nameAttribute == null){
+						nameAttribute = createComplexAttribute(SCIMSchemaDefinitions.SCIMUserSchemaDefinition.NAME,
+								SCIMConstants.UserSchemaConstants.NAME, user, true);
+					}
+					
+					if (attribute.getName().equals(LdapIPersonConstants.fullName)) {
+						subAttributeName = SCIMConstants.UserSchemaConstants.FORMATTED_NAME;
+						schema = SCIMSchemaDefinitions.SCIMUserSchemaDefinition.FORMATTED;
+					} else if (attribute.getName().equals(LdapIPersonConstants.givenName)) {
+						subAttributeName = SCIMConstants.UserSchemaConstants.GIVEN_NAME;
+						schema = SCIMSchemaDefinitions.SCIMUserSchemaDefinition.GIVEN_NAME;
+					} else if (attribute.getName().equals(LdapIPersonConstants.initials)) {
+						subAttributeName = SCIMConstants.UserSchemaConstants.MIDDLE_NAME;
+						schema = SCIMSchemaDefinitions.SCIMUserSchemaDefinition.MIDDLE_NAME;
+					} else if (attribute.getName().equals(LdapIPersonConstants.sn)) {
+						subAttributeName = SCIMConstants.UserSchemaConstants.FAMILY_NAME;
+						schema = SCIMSchemaDefinitions.SCIMUserSchemaDefinition.FAMILY_NAME;
+					} else if (attribute.getName().equals(LdapIPersonConstants.pager)) {
+						subAttributeName = SCIMConstants.UserSchemaConstants.HONORIFIC_PREFIX;
+						schema = SCIMSchemaDefinitions.SCIMUserSchemaDefinition.HONORIFIC_PREFIX;
+					} else if (attribute.getName().equals(LdapIPersonConstants.description)) {
+						subAttributeName = SCIMConstants.UserSchemaConstants.HONORIFIC_SUFFIX;
+						schema = SCIMSchemaDefinitions.SCIMUserSchemaDefinition.HONORIFIC_SUFFIX;
+					}
+					nameSubAttribute = createSimpleSubAttribute(subAttributeName, value, schema);
+					nameAttribute.setSubAttribute(nameSubAttribute);
 
-			if (attributeSet.getAttribute(LdapScimAttrMap.familyName.getValue()) != null) {
-				SimpleAttribute familyNameAttribute = createSimpleSubAttribute(
-						SCIMConstants.UserSchemaConstants.FAMILY_NAME,
-						attributeSet.getAttribute(LdapScimAttrMap.familyName.getValue()).getStringValue(),
-						SCIMSchemaDefinitions.SCIMUserSchemaDefinition.FAMILY_NAME);
-				nameAttribute.setSubAttribute(familyNameAttribute);
-			}
-
-			if (attributeSet.getAttribute(LdapScimAttrMap.givenName.getValue()) != null) {
-				SimpleAttribute givenNameAttribute = createSimpleSubAttribute(
-						SCIMConstants.UserSchemaConstants.GIVEN_NAME,
-						attributeSet.getAttribute(LdapScimAttrMap.givenName.getValue()).getStringValue(),
-						SCIMSchemaDefinitions.SCIMUserSchemaDefinition.GIVEN_NAME);
-				nameAttribute.setSubAttribute(givenNameAttribute);
-			}
-
-			if (attributeSet.getAttribute(LdapScimAttrMap.middleName.getValue()) != null) {
-				SimpleAttribute middleNameAttribute = createSimpleSubAttribute(
-						SCIMConstants.UserSchemaConstants.MIDDLE_NAME,
-						attributeSet.getAttribute(LdapScimAttrMap.middleName.getValue()).getStringValue(),
-						SCIMSchemaDefinitions.SCIMUserSchemaDefinition.MIDDLE_NAME);
-				nameAttribute.setSubAttribute(middleNameAttribute);
-			}
-
-			if (attributeSet.getAttribute(LdapScimAttrMap.honorificPrefix.getValue()) != null) {
-				SimpleAttribute honoroficPrefixAttribute = createSimpleSubAttribute(
-						SCIMConstants.UserSchemaConstants.HONORIFIC_PREFIX,
-						attributeSet.getAttribute(LdapScimAttrMap.honorificPrefix.getValue()).getStringValue(),
-						SCIMSchemaDefinitions.SCIMUserSchemaDefinition.HONORIFIC_PREFIX);
-				nameAttribute.setSubAttribute(honoroficPrefixAttribute);
-			}
-
-			if (attributeSet.getAttribute(LdapScimAttrMap.honorificSuffix.getValue()) != null) {
-				SimpleAttribute honoroficSuffixAttribute = createSimpleSubAttribute(
-						SCIMConstants.UserSchemaConstants.HONORIFIC_SUFFIX,
-						attributeSet.getAttribute(LdapScimAttrMap.honorificSuffix.getValue()).getStringValue(),
-						SCIMSchemaDefinitions.SCIMUserSchemaDefinition.HONORIFIC_SUFFIX);
-				nameAttribute.setSubAttribute(honoroficSuffixAttribute);
-			}
-
-			user.setAttribute(nameAttribute);
-
-			if (isAddressSetInLdap(attributeSet)) {
-				MultiValuedAttribute addressAttribute = createMultiValuedAttribute(
-						SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES,
-						SCIMConstants.UserSchemaConstants.ADDRESSES, user);
-				if (attributeSet.getAttribute(LdapScimAttrMap.addresses_home.getValue()) != null) {
-					String homeAddrcomplexAttributeName = SCIMConstants.UserSchemaConstants.ADDRESSES + "_"
-							+ SCIMConstants.UserSchemaConstants.HOME;
-
-					ComplexAttribute homeAddrcomplexAttribute = createComplexAttribute(
-							SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES, homeAddrcomplexAttributeName,
-							user, false);
-					homeAddrcomplexAttribute.setMultiValued(false);
-
-					SimpleAttribute addressType = createSimpleSubAttribute(SCIMConstants.CommonSchemaConstants.TYPE,
-							SCIMConstants.UserSchemaConstants.HOME,
-							SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES_TYPE);
-					homeAddrcomplexAttribute.setSubAttribute(addressType);
-
-					SimpleAttribute addressFormatted = createSimpleSubAttribute(
-							SCIMConstants.UserSchemaConstants.FORMATTED_ADDRESS,
-							attributeSet.getAttribute(LdapScimAttrMap.addresses_home.getValue()).getStringValue(),
-							SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES_FORMATTED);
-					homeAddrcomplexAttribute.setSubAttribute(addressFormatted);
-					addressAttribute.setAttributeValue(homeAddrcomplexAttribute);
 				}
 
-				if (attributeSet.getAttribute(LdapScimAttrMap.streetAddress.getValue()) != null
-						|| attributeSet.getAttribute(LdapScimAttrMap.locality.getValue()) != null
-						|| attributeSet.getAttribute(LdapScimAttrMap.region.getValue()) != null
-						|| attributeSet.getAttribute(LdapScimAttrMap.postalCode.getValue()) != null
-						|| attributeSet.getAttribute(LdapScimAttrMap.country.getValue()) != null) {
-
-					String workAddrcomplexAttributeName = SCIMConstants.UserSchemaConstants.ADDRESSES + "_"
-							+ SCIMConstants.UserSchemaConstants.WORK;
-					ComplexAttribute workAddrcomplexAttribute = createComplexAttribute(
-							SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES, workAddrcomplexAttributeName,
-							user, false);
-					workAddrcomplexAttribute.setMultiValued(false);
-
-					SimpleAttribute addressType = createSimpleSubAttribute(SCIMConstants.CommonSchemaConstants.TYPE,
-							SCIMConstants.UserSchemaConstants.WORK,
-							SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES_TYPE);
-					workAddrcomplexAttribute.setSubAttribute(addressType);
-
-					if (attributeSet.getAttribute(LdapScimAttrMap.streetAddress.getValue()) != null) {
-						SimpleAttribute workStAddress = createSimpleSubAttribute(
-								SCIMConstants.UserSchemaConstants.STREET_ADDRESS,
-								attributeSet.getAttribute(LdapScimAttrMap.streetAddress.getValue()).getStringValue(),
-								SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES_STREET_ADDRESS);
-						workAddrcomplexAttribute.setSubAttribute(workStAddress);
+				if (attribute.getName().matches(LdapIPersonConstants.homePostalAddress + "|" + LdapIPersonConstants.street + "|"
+								+ LdapIPersonConstants.l + "|" + LdapIPersonConstants.st + "|"
+								+ LdapIPersonConstants.postalCode + "|" + LdapIPersonConstants.destinationIndicator)) {
+					if(addressAttribute == null){
+						addressAttribute = createMultiValuedAttribute(
+								SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES,
+								SCIMConstants.UserSchemaConstants.ADDRESSES, user);
 					}
 
-					if (attributeSet.getAttribute(LdapScimAttrMap.locality.getValue()) != null) {
-						SimpleAttribute workLocality = createSimpleSubAttribute(
-								SCIMConstants.UserSchemaConstants.LOCALITY,
-								attributeSet.getAttribute(LdapScimAttrMap.locality.getValue()).getStringValue(),
-								SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES_LOCALITY);
-						workAddrcomplexAttribute.setSubAttribute(workLocality);
-					}
-
-					if (attributeSet.getAttribute(LdapScimAttrMap.region.getValue()) != null) {
-						SimpleAttribute workRegion = createSimpleSubAttribute(SCIMConstants.UserSchemaConstants.REGION,
-								attributeSet.getAttribute(LdapScimAttrMap.region.getValue()).getStringValue(),
-								SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES_REGION);
-						workAddrcomplexAttribute.setSubAttribute(workRegion);
-					}
-
-					if (attributeSet.getAttribute(LdapScimAttrMap.postalCode.getValue()) != null) {
-						SimpleAttribute workPostalCode = createSimpleSubAttribute(
-								SCIMConstants.UserSchemaConstants.POSTAL_CODE,
-								attributeSet.getAttribute(LdapScimAttrMap.postalCode.getValue()).getStringValue(),
-								SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES_POSTAL_CODE);
-						workAddrcomplexAttribute.setSubAttribute(workPostalCode);
-					}
-
-					if (attributeSet.getAttribute(LdapScimAttrMap.country.getValue()) != null) {
-						SimpleAttribute workCountry = createSimpleSubAttribute(
-								SCIMConstants.UserSchemaConstants.COUNTRY,
-								attributeSet.getAttribute(LdapScimAttrMap.country.getValue()).getStringValue(),
-								SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES_COUNTRY);
-						workAddrcomplexAttribute.setSubAttribute(workCountry);
-					}
-
-					addressAttribute.setAttributeValue(workAddrcomplexAttribute);
+					if (attribute.getName().equals(LdapIPersonConstants.homePostalAddress)) {
+						subAttributeName = SCIMConstants.UserSchemaConstants.ADDRESSES + "_" + SCIMConstants.UserSchemaConstants.HOME;
+						schema = SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES;
+						if(homeAddrAttribute == null){
+							homeAddrAttribute = createComplexAttribute(schema,subAttributeName, user, false);
+							homeAddrAttribute.setMultiValued(false);
+						}
+						
+						addressType = createSimpleSubAttribute(SCIMConstants.CommonSchemaConstants.
+								  TYPE, SCIMConstants.UserSchemaConstants.HOME,
+								  SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES_TYPE);
+						if(!homeAddrAttribute.isSubAttributeExist(SCIMConstants.CommonSchemaConstants.TYPE))
+							homeAddrAttribute.setSubAttribute(addressType);
+								  
+						addressFormatted = createSimpleSubAttribute(SCIMConstants.UserSchemaConstants.FORMATTED_ADDRESS,
+								  value,SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES_FORMATTED);
+						homeAddrAttribute.setSubAttribute(addressFormatted);
+						addressAttribute.setAttributeValue(homeAddrAttribute); 
+					} 
+					
+					else{
+						subAttributeName = SCIMConstants.UserSchemaConstants.ADDRESSES + "_" + SCIMConstants.UserSchemaConstants.WORK;
+						schema = SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES;
+						if(workAddrAttribute == null){
+							workAddrAttribute = createComplexAttribute(schema,subAttributeName, user, false);
+							workAddrAttribute.setMultiValued(false);
+						}
+						
+						addressType = createSimpleSubAttribute(SCIMConstants.CommonSchemaConstants.
+								  TYPE, SCIMConstants.UserSchemaConstants.WORK,
+								  SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES_TYPE);
+						if(!workAddrAttribute.isSubAttributeExist(SCIMConstants.CommonSchemaConstants.TYPE))
+							workAddrAttribute.setSubAttribute(addressType);
+								  
+						if (attribute.getName().matches(LdapIPersonConstants.street)){
+							subAttributeName = SCIMConstants.UserSchemaConstants.STREET_ADDRESS;
+							schema = SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES_STREET_ADDRESS;
+						}
+						else if (attribute.getName().matches(LdapIPersonConstants.l)){
+							subAttributeName = SCIMConstants.UserSchemaConstants.LOCALITY;
+							schema = SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES_LOCALITY;
+						}
+						else if (attribute.getName().matches(LdapIPersonConstants.st)){
+							subAttributeName = SCIMConstants.UserSchemaConstants.REGION;
+							schema = SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES_REGION;
+						}
+						else if (attribute.getName().matches(LdapIPersonConstants.postalCode)){
+							subAttributeName = SCIMConstants.UserSchemaConstants.POSTAL_CODE;
+							schema = SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES_POSTAL_CODE;
+						}
+						else if (attribute.getName().matches(LdapIPersonConstants.destinationIndicator)){
+							subAttributeName = SCIMConstants.UserSchemaConstants.COUNTRY;
+							schema = SCIMSchemaDefinitions.SCIMUserSchemaDefinition.ADDRESSES_COUNTRY;
+						}
+						workAddressSubAttribute = createSimpleSubAttribute(subAttributeName, value, schema);
+						workAddrAttribute.setSubAttribute(workAddressSubAttribute);
+						if(!addressAttribute.getAttributeValues().contains(workAddrAttribute))
+							addressAttribute.setAttributeValue(workAddrAttribute);
+					} 
 				}
+
+				if (attribute.getName().matches(LdapIPersonConstants.mail + "|" + LdapIPersonConstants.departmentNumber)) {
+					if(emailAttribute == null){
+						emailAttribute = createMultiValuedAttribute(SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAILS,
+								SCIMConstants.UserSchemaConstants.EMAILS, user);
+					}
+					if (attribute.getName().equals(LdapIPersonConstants.mail)) {
+						subAttributeName = SCIMConstants.UserSchemaConstants.EMAILS + "_" +SCIMConstants.UserSchemaConstants.HOME;
+						schema = SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAILS;
+						if(homeEmailAttribute == null){
+							homeEmailAttribute = createComplexAttribute(schema,subAttributeName, user, false);
+							homeEmailAttribute.setMultiValued(false);
+						}
+						
+						emailType = createSimpleSubAttribute(SCIMConstants.CommonSchemaConstants.TYPE, 
+								SCIMConstants.UserSchemaConstants.HOME, SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAIL_TYPE);
+						homeEmailAttribute.setSubAttribute(emailType);
+								  
+						emailValue = createSimpleSubAttribute(SCIMConstants.CommonSchemaConstants.VALUE,
+										  value,SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAIL_VALUE);
+						homeEmailAttribute.setSubAttribute(emailValue);
+						if(!emailAttribute.getAttributeValues().contains(homeEmailAttribute))
+							emailAttribute.setAttributeValue(homeEmailAttribute);
+					} 
+					else {
+						subAttributeName = SCIMConstants.UserSchemaConstants.EMAILS + "_" +SCIMConstants.UserSchemaConstants.WORK;
+						schema = SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAILS;
+						if(workEmailAttribute == null){
+							workEmailAttribute = createComplexAttribute(schema,subAttributeName, user, false);
+							workEmailAttribute.setMultiValued(false);
+						}
+						
+						emailType = createSimpleSubAttribute(SCIMConstants.CommonSchemaConstants.TYPE, 
+								SCIMConstants.UserSchemaConstants.WORK, SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAIL_TYPE);
+						workEmailAttribute.setSubAttribute(emailType);
+								  
+						emailValue = createSimpleSubAttribute(SCIMConstants.CommonSchemaConstants.VALUE,
+										  value,SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAIL_VALUE);
+						workEmailAttribute.setSubAttribute(emailValue);
+						if(!emailAttribute.getAttributeValues().contains(workEmailAttribute))
+							emailAttribute.setAttributeValue(workEmailAttribute);
+					} 
+
+				}
+			}
+			if (nameAttribute != null) {
+				user.setAttribute(nameAttribute);
+			}
+			if(addressAttribute != null){
 				user.setAttribute(addressAttribute);
-
 			}
-			if(isEmailSetInLdap(attributeSet)){
-				SimpleAttribute emailType;
-				SimpleAttribute emailValue;
-				MultiValuedAttribute emailAttribute = createMultiValuedAttribute(
-						SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAILS,
-						SCIMConstants.UserSchemaConstants.EMAILS, user);
-				if (attributeSet.getAttribute(LdapScimAttrMap.emails_home.getValue()) != null) {
-					String homeEmailcomplexAttributeName = SCIMConstants.UserSchemaConstants.EMAILS + "_"
-							+ SCIMConstants.UserSchemaConstants.HOME;
-					ComplexAttribute homeEmailcomplexAttribute = createComplexAttribute(
-							SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAILS, homeEmailcomplexAttributeName,
-							user, false);
-					homeEmailcomplexAttribute.setMultiValued(false);
-					
-					emailType = createSimpleSubAttribute(SCIMConstants.CommonSchemaConstants.TYPE,
-							SCIMConstants.UserSchemaConstants.HOME,
-							SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAIL_TYPE);
-					homeEmailcomplexAttribute.setSubAttribute(emailType);
-
-					emailValue = createSimpleSubAttribute(
-							SCIMConstants.CommonSchemaConstants.VALUE,
-							attributeSet.getAttribute(LdapScimAttrMap.emails_home.getValue()).getStringValue(),
-							SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAIL_VALUE);
-					homeEmailcomplexAttribute.setSubAttribute(emailValue);
-					emailAttribute.setAttributeValue(homeEmailcomplexAttribute);
-				}
-				
-				if (attributeSet.getAttribute(LdapScimAttrMap.emails_work.getValue()) != null) {
-					String workEmailcomplexAttributeName = SCIMConstants.UserSchemaConstants.EMAILS + "_"
-							+ SCIMConstants.UserSchemaConstants.WORK;
-					ComplexAttribute workEmailcomplexAttribute = createComplexAttribute(
-							SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAILS, workEmailcomplexAttributeName,
-							user, false);
-					workEmailcomplexAttribute.setMultiValued(false);
-					
-					emailType = createSimpleSubAttribute(SCIMConstants.CommonSchemaConstants.TYPE,
-							SCIMConstants.UserSchemaConstants.WORK,
-							SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAIL_TYPE);
-					workEmailcomplexAttribute.setSubAttribute(emailType);
-
-					emailValue = createSimpleSubAttribute(
-							SCIMConstants.CommonSchemaConstants.VALUE,
-							attributeSet.getAttribute(LdapScimAttrMap.emails_work.getValue()).getStringValue(),
-							SCIMSchemaDefinitions.SCIMUserSchemaDefinition.EMAIL_VALUE);
-					workEmailcomplexAttribute.setSubAttribute(emailValue);
-					emailAttribute.setAttributeValue(workEmailcomplexAttribute);
-				}
+			if(emailAttribute != null){
 				user.setAttribute(emailAttribute);
-				
 			}
+
+			
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -371,9 +368,11 @@ public class LdapUtil {
 									if (simpleAttribute.getValue().equals(UserSchemaConstants.HOME)) {
 										isHome = true;
 									} else {
-										/*if (LdapScimAttrMap.addresses.isSet()) {
-											continue;
-										}*/
+										/*
+										 * if
+										 * (LdapScimAttrMap.addresses.isSet()) {
+										 * continue; }
+										 */
 										break;
 									}
 								} else if (subSubAttribute.getName().equals("formatted")) {
@@ -385,10 +384,10 @@ public class LdapUtil {
 							} else {
 								for (Attribute subSubAttribute : subSubAttributes.values()) {
 									if (subSubAttribute.getName().equals(LdapScimAttrMap.streetAddress.name())
-											||subSubAttribute.getName().equals(LdapScimAttrMap.locality.name())
-											||subSubAttribute.getName().equals(LdapScimAttrMap.region.name())
-											||subSubAttribute.getName().equals(LdapScimAttrMap.postalCode.name())
-											||subSubAttribute.getName().equals(LdapScimAttrMap.country.name())) {
+											|| subSubAttribute.getName().equals(LdapScimAttrMap.locality.name())
+											|| subSubAttribute.getName().equals(LdapScimAttrMap.region.name())
+											|| subSubAttribute.getName().equals(LdapScimAttrMap.postalCode.name())
+											|| subSubAttribute.getName().equals(LdapScimAttrMap.country.name())) {
 										attributeSet = addSimpleAttribute(null, attributeSet,
 												(Attribute) ((SimpleAttribute) subSubAttribute));
 									}
@@ -403,9 +402,10 @@ public class LdapUtil {
 										attributeSet = addSimpleAttribute(parent, attributeSet,
 												(Attribute) ((SimpleAttribute) subSubAttribute));
 									} /*
-									 * if (UserSchemaConstants.ADDRESSES.equals(
-									 * parent)) { parent=parent+"_"+ }
-									 */
+										 * if (UserSchemaConstants.ADDRESSES.
+										 * equals( parent)) { parent=parent+"_"+
+										 * }
+										 */
 
 								} else if (subSubAttribute instanceof MultiValuedAttribute) {
 									attributeSet = addMultiValuedPrimitiveAttribute(
@@ -425,7 +425,7 @@ public class LdapUtil {
 		}
 		return attributeSet;
 	}
-	
+
 	private static LDAPAttributeSet addSimpleAttribute(String parentName, LDAPAttributeSet attributeSet,
 			Attribute attribute) {
 		SimpleAttribute simpleAttribute = (SimpleAttribute) attribute;
@@ -550,63 +550,14 @@ public class LdapUtil {
 
 		if (user.getAttributeList().containsKey(mvAttrName)) {
 			mvAttribute = (MultiValuedAttribute) user.getAttributeList().get(mvAttrName);
-
 		} else {
 			mvAttribute = new MultiValuedAttribute(mvAttrName);
-			// groupsAttribute.setAttributeValue(groupPropertiesAttribute);
 			mvAttribute = (MultiValuedAttribute) DefaultAttributeFactory.createAttribute(schema, mvAttribute);
-			// this.attributeList.put(SCIMConstants.UserSchemaConstants.GROUPS,
-			// groupsAttribute);
 		}
 		return mvAttribute;
 
 	}
-
-	private static boolean isNameSetInLdap(LDAPAttributeSet attributeSet) {
-		if (attributeSet.getAttribute(LdapScimAttrMap.formatted.getValue()) != null)
-			return true;
-		else if (attributeSet.getAttribute(LdapScimAttrMap.familyName.getValue()) != null)
-			return true;
-		else if (attributeSet.getAttribute(LdapScimAttrMap.givenName.getValue()) != null)
-			return true;
-		else if (attributeSet.getAttribute(LdapScimAttrMap.middleName.getValue()) != null)
-			return true;
-		else if (attributeSet.getAttribute(LdapScimAttrMap.honorificPrefix.getValue()) != null)
-			return true;
-		else if (attributeSet.getAttribute(LdapScimAttrMap.honorificSuffix.getValue()) != null)
-			return true;
-		else
-			return false;
-	}
-
-	private static boolean isAddressSetInLdap(LDAPAttributeSet attributeSet) {
-		if (attributeSet.getAttribute(LdapScimAttrMap.addresses.getValue()) != null)
-			return true;
-		else if (attributeSet.getAttribute(LdapScimAttrMap.addresses_home.getValue()) != null)
-			return true;
-		else if (attributeSet.getAttribute(LdapScimAttrMap.streetAddress.getValue()) != null)
-			return true;
-		else if (attributeSet.getAttribute(LdapScimAttrMap.locality.getValue()) != null)
-			return true;
-		else if (attributeSet.getAttribute(LdapScimAttrMap.region.getValue()) != null)
-			return true;
-		else if (attributeSet.getAttribute(LdapScimAttrMap.postalCode.getValue()) != null)
-			return true;
-		else if (attributeSet.getAttribute(LdapScimAttrMap.country.getValue()) != null)
-			return true;
-		else
-			return false;
-	}
-
-	private static boolean isEmailSetInLdap(LDAPAttributeSet attributeSet) {
-		if (attributeSet.getAttribute(LdapScimAttrMap.emails_home.getValue()) != null)
-			return true;
-		else if (attributeSet.getAttribute(LdapScimAttrMap.emails_work.getValue()) != null)
-			return true;
-		else
-			return false;
-	}
-
+	
 	private static boolean isPhoneSetInLdap(LDAPAttributeSet attributeSet) {
 		if (attributeSet.getAttribute(LdapScimAttrMap.phoneNumbers_home.getValue()) != null)
 			return true;
@@ -625,7 +576,6 @@ public class LdapUtil {
 			return false;
 	}
 
-
 	public static LDAPAttributeSet copyGroupToLdap(Group group) {
 		LDAPAttributeSet attributeSet = new LDAPAttributeSet();
 		attributeSet.add(new LDAPAttribute(LdapConstants.objectclass, LdapConstants.groupClass));
@@ -637,10 +587,10 @@ public class LdapUtil {
 			attributeSet.add(new LDAPAttribute(GroupConstants.modifiedDate, group.getLastModified().toString()));
 			List<Object> members = group.getMembers();
 			String[] groupMembers = new String[members.size()];
-			int i=0;
-			for(Object id: members){
+			int i = 0;
+			for (Object id : members) {
 				String uid = (String) id;
-				String dn = UserConstants.uid+ "="+ uid+ "," +LdapConstants.userContainer;
+				String dn = UserConstants.uid + "=" + uid + "," + LdapConstants.userContainer;
 				groupMembers[i++] = dn;
 			}
 			attributeSet.add(new LDAPAttribute(GroupConstants.member, groupMembers));
@@ -706,5 +656,111 @@ public class LdapUtil {
 			return date;
 		}
 		return null;
+	}
+
+
+	public static Object[] sort(LDAPSearchResults searchResults, String sortBy, 
+			String sortOrder, int startIndex, int count ) throws LDAPException, BadRequestException {
+		
+		//sortedResults will sort the entries according to the natural ordering of LDAPEntry (by distiguished name).
+		TreeSet sortedResults = new TreeSet();
+		while (searchResults.hasMore()) {
+			try {
+				sortedResults.add(searchResults.next());
+			} catch (LDAPException e) {
+				System.out.println("Error: " + e.toString());
+				// Exception is thrown, go for next entry
+				continue;
+			}
+		}
+
+		//String namesToSortBy[] = { "sn", "uid", "cn" };
+		//boolean sortAscending[] = { true, false, true };
+		String namesToSortBy[] = { sortBy };
+		boolean sOrder = sortOrder.equals("descending")?false:true;
+		boolean sortAscending[] = { sOrder };
+		LDAPCompareAttrNames myComparator = new LDAPCompareAttrNames(namesToSortBy, sortAscending);
+		Object sortedSpecial[] = sortedResults.toArray();
+		Arrays.sort(sortedSpecial, myComparator);
+
+		if(startIndex>1 || count>0) {
+			if(sortedSpecial.length<startIndex+count-1){
+				throw new BadRequestException("invalidValue");
+			}
+			Object paginatedSpecial[] = Arrays.copyOfRange(sortedSpecial, startIndex-1, startIndex+count-1);
+			return paginatedSpecial;
+		}
+
+		return sortedSpecial;
+	}
+
+	public static Object[] sort(LDAPSearchResults searchResults, String sortBy, 
+			String sortOrder, int startIndex, int count ) throws LDAPException, BadRequestException {
+		
+		//sortedResults will sort the entries according to the natural ordering of LDAPEntry (by distiguished name).
+		TreeSet sortedResults = new TreeSet();
+		while (searchResults.hasMore()) {
+			try {
+				sortedResults.add(searchResults.next());
+			} catch (LDAPException e) {
+				System.out.println("Error: " + e.toString());
+				// Exception is thrown, go for next entry
+				continue;
+			}
+		}
+
+		//String namesToSortBy[] = { "sn", "uid", "cn" };
+		//boolean sortAscending[] = { true, false, true };
+		String namesToSortBy[] = { sortBy };
+		boolean sOrder = sortOrder.equals("descending")?false:true;
+		boolean sortAscending[] = { sOrder };
+		LDAPCompareAttrNames myComparator = new LDAPCompareAttrNames(namesToSortBy, sortAscending);
+		Object sortedSpecial[] = sortedResults.toArray();
+		Arrays.sort(sortedSpecial, myComparator);
+
+		if(startIndex>1 || count>0) {
+			if(sortedSpecial.length<startIndex+count-1){
+				throw new BadRequestException("invalidValue");
+			}
+			Object paginatedSpecial[] = Arrays.copyOfRange(sortedSpecial, startIndex-1, startIndex+count-1);
+			return paginatedSpecial;
+		}
+
+		return sortedSpecial;
+	}
+
+	public static Object[] sort(LDAPSearchResults searchResults, String sortBy, 
+			String sortOrder, int startIndex, int count ) throws LDAPException, BadRequestException {
+		
+		//sortedResults will sort the entries according to the natural ordering of LDAPEntry (by distiguished name).
+		TreeSet sortedResults = new TreeSet();
+		while (searchResults.hasMore()) {
+			try {
+				sortedResults.add(searchResults.next());
+			} catch (LDAPException e) {
+				System.out.println("Error: " + e.toString());
+				// Exception is thrown, go for next entry
+				continue;
+			}
+		}
+
+		//String namesToSortBy[] = { "sn", "uid", "cn" };
+		//boolean sortAscending[] = { true, false, true };
+		String namesToSortBy[] = { sortBy };
+		boolean sOrder = sortOrder.equals("descending")?false:true;
+		boolean sortAscending[] = { sOrder };
+		LDAPCompareAttrNames myComparator = new LDAPCompareAttrNames(namesToSortBy, sortAscending);
+		Object sortedSpecial[] = sortedResults.toArray();
+		Arrays.sort(sortedSpecial, myComparator);
+
+		if(startIndex>1 || count>0) {
+			if(sortedSpecial.length<startIndex+count-1){
+				throw new BadRequestException("invalidValue");
+			}
+			Object paginatedSpecial[] = Arrays.copyOfRange(sortedSpecial, startIndex-1, startIndex+count-1);
+			return paginatedSpecial;
+		}
+
+		return sortedSpecial;
 	}
 }
