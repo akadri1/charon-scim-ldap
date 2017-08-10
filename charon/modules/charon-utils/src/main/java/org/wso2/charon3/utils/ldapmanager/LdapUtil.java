@@ -89,9 +89,9 @@ public class LdapUtil {
 
 	}
 
+
 	/**
 	 * Converts LDAP Entry object in to SCIM object
-	 * 
 	 * @param entry
 	 * @return
 	 */
