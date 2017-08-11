@@ -90,7 +90,6 @@ public class LdapManager implements UserManager {
 		//Added by Reena Hegde
 
 		LDAPConnection lc = LdapConnectUtil.getConnection(false);
-		List<LDAPEntry> userList = new ArrayList<>();
 		User user = new User();
 
 		try {
@@ -262,7 +261,7 @@ public class LdapManager implements UserManager {
 		}
 		try {
 			deleteUser(id);
-			createUser(user, map);
+			createUser(user, map); //Transaction management required
 		} catch (ConflictException e) {
 			e.printStackTrace();
 			System.out.println(e.getMessage());
@@ -311,7 +310,7 @@ public class LdapManager implements UserManager {
 		} catch (LDAPException e) {
 			e.printStackTrace();
 			System.out.println(e.getMessage());
-			throw new ConflictException("Group with the id : " + cn + "already exists");
+			throw new ConflictException("Group with the id : " + cn + " cannot be created due to "+e.getMessage());
 		}
 		try {
 			group = getGroup(cn, map);
@@ -377,9 +376,7 @@ public class LdapManager implements UserManager {
 			String sortOrder, Map<String, Boolean> requiredAttributes)
 					throws CharonException, NotImplementedException, BadRequestException {
 		String search = null;
-		/*if (startIndex != 1) {
-			throw new NotImplementedException("Pagination is not supported");
-		} else */if (rootNode != null) {
+		if (rootNode != null) {
 			search = getLdapSearch(rootNode, search, SCIMConstants.GROUP_CORE_SCHEMA_URI);
 		}
 		return listGroups(requiredAttributes, search, sortBy, sortOrder, startIndex, count);

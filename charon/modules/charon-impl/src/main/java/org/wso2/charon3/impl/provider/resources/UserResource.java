@@ -33,6 +33,7 @@ import org.wso2.charon3.core.exceptions.FormatNotSupportedException;
 import org.wso2.charon3.core.extensions.UserManager;
 import org.wso2.charon3.core.protocol.SCIMResponse;
 import org.wso2.charon3.core.protocol.endpoints.UserResourceManager;
+import org.wso2.charon3.impl.jaxrs.designator.PATCH;
 import org.wso2.charon3.impl.provider.util.SCIMProviderConstants;
 import org.wso2.charon3.utils.DefaultCharonManager;
 
@@ -276,5 +277,40 @@ public class UserResource extends AbstractResource {
         }
     }
 
+    @PATCH
+    @Path("{id}")
+    @Produces({"application/json", "application/scim+json"})
+    @Consumes("application/scim+json")
+    @ApiOperation(
+            value = "Return the updated user",
+            notes = "Returns HTTP 404 if the user is not found.")
 
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "User is patched"),
+            @ApiResponse(code = 404, message = "Valid user is not found")})
+
+    public Response patchUser(@ApiParam(value = SCIMProviderConstants.ID_DESC, required = true)
+                               @PathParam(SCIMProviderConstants.ID) String id,
+                               @ApiParam(value = SCIMProviderConstants.ATTRIBUTES_DESC, required = false)
+                               @QueryParam(SCIMProviderConstants.ATTRIBUTES) String attribute,
+                               @ApiParam(value = SCIMProviderConstants.EXCLUDED_ATTRIBUTES_DESC, required = false)
+                               @QueryParam(SCIMProviderConstants.EXCLUDE_ATTRIBUTES) String excludedAttributes,
+                               String resourceString) throws FormatNotSupportedException, CharonException {
+
+        try {
+            // obtain the user store manager
+            UserManager userManager = DefaultCharonManager.getInstance().getUserManager();
+
+            // create charon-SCIM user endpoint and hand-over the request.
+            UserResourceManager userResourceManager = new UserResourceManager();
+
+            SCIMResponse response = userResourceManager.updateWithPATCH(
+                    id, resourceString, userManager, attribute, excludedAttributes);
+
+            return buildResponse(response);
+
+        } catch (CharonException e) {
+            throw new CharonException(e.getDetail(), e);
+        }
+    }
 }

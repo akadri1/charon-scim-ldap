@@ -31,6 +31,7 @@ import org.osgi.service.component.annotations.Component;
 import org.wso2.charon3.core.exceptions.CharonException;
 import org.wso2.charon3.core.exceptions.FormatNotSupportedException;
 import org.wso2.charon3.core.extensions.UserManager;
+import org.wso2.charon3.core.protocol.ResponseCodeConstants;
 import org.wso2.charon3.core.protocol.SCIMResponse;
 import org.wso2.charon3.core.protocol.endpoints.GroupResourceManager;
 import org.wso2.charon3.impl.provider.util.SCIMProviderConstants;
@@ -44,6 +45,7 @@ import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import io.swagger.annotations.Info;
 import io.swagger.annotations.SwaggerDefinition;
+import io.swagger.jaxrs.PATCH;
 
 /**
  * Endpoints of the GroupResource in micro service. This will basically captures
@@ -284,5 +286,88 @@ public class GroupResource extends AbstractResource {
         }
     }
 
+    /*@PATCH
+    @Path("{id}")
+    @Produces({"application/json", "application/scim+json"})
+    @Consumes("application/scim+json")
+
+    @ApiOperation(
+            value = "Return the updated group",
+            notes = "Returns HTTP 404 if the group is not found.")
+
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "Group is updated"),
+            @ApiResponse(code = 404, message = "Valid group is not found")})
+
+    public Response patchGroup(@ApiParam(value = SCIMProviderConstants.ID_DESC, required = true)
+                               @PathParam(SCIMProviderConstants.ID) String id,
+                               @ApiParam(value = SCIMProviderConstants.ATTRIBUTES_DESC, required = false)
+                               @QueryParam(SCIMProviderConstants.ATTRIBUTES) String attribute,
+                               @ApiParam(value = SCIMProviderConstants.EXCLUDED_ATTRIBUTES_DESC, required = false)
+                               @QueryParam(SCIMProviderConstants.EXCLUDE_ATTRIBUTES) String excludedAttributes,
+                               String resourceString) throws FormatNotSupportedException, CharonException {
+
+        try {
+            // obtain the user store manager
+            UserManager userManager = DefaultCharonManager.getInstance().getUserManager();
+
+            // create charon-SCIM group endpoint and hand-over the request.
+            GroupResourceManager groupResourceManager = new GroupResourceManager();
+
+            SCIMResponse response = groupResourceManager.updateWithPATCH(
+                    id, resourceString, userManager, attribute, excludedAttributes);
+
+            return buildResponse(response);
+
+        } catch (CharonException e) {
+            throw new CharonException(e.getDetail(), e);
+        }
+    }*/
+    
+    /*@PATCH
+    public Response patchGroup(){
+
+    	System.out.println("hihtdrdrtdfgdffc");
+         return buildResponse(new SCIMResponse(ResponseCodeConstants.CODE_NO_CONTENT, null, null));
+
+    }*/
+    
+    @PATCH
+    @Path("{id}")
+    @Produces({"application/json", "application/scim+json"})
+    @Consumes("application/scim+json")
+
+    @ApiOperation(
+            value = "Return the updated group",
+            notes = "Returns HTTP 404 if the group is not found.")
+
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "Group is updated"),
+            @ApiResponse(code = 404, message = "Valid group is not found")})
+
+    public Response patchGroup(@ApiParam(value = SCIMProviderConstants.ID_DESC, required = true)
+                               @PathParam(SCIMProviderConstants.ID) String id,
+                               @ApiParam(value = SCIMProviderConstants.ATTRIBUTES_DESC, required = false)
+                               @QueryParam(SCIMProviderConstants.ATTRIBUTES) String attribute,
+                               @ApiParam(value = SCIMProviderConstants.EXCLUDED_ATTRIBUTES_DESC, required = false)
+                               @QueryParam(SCIMProviderConstants.EXCLUDE_ATTRIBUTES) String excludedAttributes,
+                               String resourceString) throws FormatNotSupportedException, CharonException {
+
+        try {
+            // obtain the user store manager
+            UserManager userManager = DefaultCharonManager.getInstance().getUserManager();
+
+            // create charon-SCIM group endpoint and hand-over the request.
+            GroupResourceManager groupResourceManager = new GroupResourceManager();
+
+            SCIMResponse response = groupResourceManager.updateWithPATCH(
+                    id, resourceString, userManager, attribute, excludedAttributes);
+
+            return buildResponse(response);
+
+        } catch (CharonException e) {
+            throw new CharonException(e.getDetail(), e);
+        }
+    }
 }
 

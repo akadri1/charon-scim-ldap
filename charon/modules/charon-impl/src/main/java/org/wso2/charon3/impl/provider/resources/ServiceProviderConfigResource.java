@@ -34,6 +34,7 @@ import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import io.swagger.annotations.Info;
 import io.swagger.annotations.SwaggerDefinition;
+import io.swagger.jaxrs.PATCH;
 
 /**
  * Endpoints of the UserResource in micro service. This will basically captures
@@ -43,28 +44,45 @@ import io.swagger.annotations.SwaggerDefinition;
 
 @Api(value = "/scim/v2/ServiceProviderConfig")
 @SwaggerDefinition(
-        info = @Info(
-                title = "/ServiceProviderConfig Endpoint Swagger Definition", version = "1.0",
-                description = "SCIM 2.0 /ResourceType endpoint")
-)
+		info = @Info(
+				title = "/ServiceProviderConfig Endpoint Swagger Definition", version = "1.0",
+				description = "SCIM 2.0 /ResourceType endpoint")
+		)
 @Path("/scim/v2/ServiceProviderConfig")
 public class ServiceProviderConfigResource extends AbstractResource {
 
-    @GET
-    @Produces({"application/json", "application/scim+json"})
-    @ApiOperation(value = "Return ResourceType ")
+	@PATCH
+	@Produces({"application/json", "application/scim+json"})
+	@ApiOperation(value = "Return ResourceType ")
 
-    @ApiResponses(value = {@ApiResponse(code = 200, message = "ResourceTypes")})
+	@ApiResponses(value = {@ApiResponse(code = 200, message = "ResourceTypes")})
 
-    public Response getResourceType() throws CharonException {
-    	UserManager userManager = DefaultCharonManager.getInstance().getUserManager();
-    	
-        // create charon-SCIM user resource manager and hand-over the request.
+	public Response patchResourceType() throws CharonException {
+		UserManager userManager = DefaultCharonManager.getInstance().getUserManager();
+
+		// create charon-SCIM user resource manager and hand-over the request.
 		ServiceProviderConfigResourceManager configResourceManager = new ServiceProviderConfigResourceManager();
 
 		SCIMResponse scimResponse = configResourceManager.get(null,userManager,null,null);
 
 		return buildResponse(scimResponse);
-    }
+	}
+
+	@GET
+	@Produces({"application/json", "application/scim+json"})
+	@ApiOperation(value = "Return ResourceType ")
+
+	@ApiResponses(value = {@ApiResponse(code = 200, message = "ResourceTypes")})
+
+	public Response getResourceType() throws CharonException {
+		UserManager userManager = DefaultCharonManager.getInstance().getUserManager();
+
+		// create charon-SCIM user resource manager and hand-over the request.
+		ServiceProviderConfigResourceManager configResourceManager = new ServiceProviderConfigResourceManager();
+
+		SCIMResponse scimResponse = configResourceManager.get(null,userManager,null,null);
+
+		return buildResponse(scimResponse);
+	}
 
 }
